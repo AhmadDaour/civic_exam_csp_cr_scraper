@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "civic_exam_csp_cr_scraper"
+version = "0.1.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,16 +1,15 @@
 import requests
 from bs4 import BeautifulSoup
-import json
-from datetime import datetime
+from abc import ABC
 
 
-class CiviqueCSPScraper:
-    URL = (
-        "https://formation-civique.interieur.gouv.fr/"
-        "examen-civique/liste-officielle-des-questions-de-connaissance-csp/"
-    )
+class CiviqueBaseQuestionsScraper(ABC):
+    URL: str = None
 
     def fetch_page(self) -> str:
+        if not self.URL:
+            raise ValueError("URL must be defined")
+
         response = requests.get(
             self.URL,
             timeout=20,
@@ -27,14 +26,13 @@ class CiviqueCSPScraper:
         sections = []
         current_section = None
 
-        # On parcourt le contenu dans l'ordre du HTML
+        # Parcours du HTML dans l'ordre (clé de la logique)
         for element in soup.find_all(["b", "li"]):
 
-            # SECTION : <b>...</b>
+            # SECTION
             if element.name == "b":
                 title = element.get_text(strip=True)
 
-                # On garde uniquement les vrais titres
                 if title.endswith(":"):
                     current_section = {
                         "section": title.replace(" :", ":").strip(),
@@ -42,7 +40,7 @@ class CiviqueCSPScraper:
                     }
                     sections.append(current_section)
 
-            # QUESTION : <li data-block-key="...">
+            # QUESTION
             elif (
                 element.name == "li"
                 and element.has_attr("data-block-key")
@@ -52,32 +50,8 @@ class CiviqueCSPScraper:
                 if question:
                     current_section["questions"].append(question)
 
-        # Nettoyage : retirer sections sans questions
-        sections = [s for s in sections if s["questions"]]
-
-        return sections
+        return [s for s in sections if s["questions"]]
 
     def run(self):
         html = self.fetch_page()
         return self.parse(html)
-
-
-if __name__ == "__main__":
-    scraper = CiviqueCSPScraper()
-    data = scraper.run()
-
-    output_path = "data/raw/csp_questions_raw.json"
-
-    payload = {
-        "source_url": scraper.URL,
-        "scraped_at": datetime.utcnow().isoformat(),
-        "sections": data
-    }
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
-
-    print(
-        f"Scraping completed: {len(data)} sections "
-        f"saved to {output_path}"
-    )
